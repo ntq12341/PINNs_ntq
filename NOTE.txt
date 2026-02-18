@@ -1,0 +1,1 @@
+Lỗi 1: trong loss tách loss_data (ic, bc) <so với dữ liệu đưa vào, hiện tại đang ép về 0> và loss_res <ép về 0>
