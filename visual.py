@@ -3,78 +3,68 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from data_process import * 
 
-def result_3d(model, t_max=0.4, n_points=100):
+def result_3d(model, t_max=1.0, n_points=100, exact=True, cmap='viridis', save_path=None):
     # ===== Tạo lưới =====
     x = np.linspace(0, 1, n_points)
     t = np.linspace(0, t_max, n_points)
-    X, T = np.meshgrid(x, t)
+    X, T_grid = np.meshgrid(x, t)
 
-    # ===== PINN prediction =====
-    X_flat = X.flatten()[:, None]
-    T_flat = T.flatten()[:, None]
-    X_star = np.hstack([X_flat, T_flat])
+    if exact:
+        # ===== Exact solution =====
+        U = np.zeros_like(X)
+        for i in range(len(t)):
+            for j in range(len(x)):
+                U[i, j] = exact_solution(x[j], t[i])
+        title = 'Exact Solution'
+        filename = '3d_exact.png'
+    else:
+        # ===== PINN prediction =====
+        X_flat = X.flatten()[:, None]
+        T_flat = T_grid.flatten()[:, None]
+        X_star = np.hstack([X_flat, T_flat])
 
-    U_pinn_flat, _ = model.predict(X_star)
-    U_pinn = U_pinn_flat.reshape(X.shape)
-
-    # ===== Exact solution =====
-    U_exact = np.zeros_like(X)
-    for i in range(len(t)):
-        for j in range(len(x)):
-            U_exact[i, j] = exact_solution(x[j], t[i])
+        U_flat, _ = model.predict(X_star)
+        U = U_flat.reshape(X.shape)
+        title = 'PINN Solution'
+        filename = '3d_pinn.png'
 
     # ===== Figure =====
-    fig = plt.figure(figsize=(14, 6))
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(1, 1, 1, projection='3d')
 
-    # ===================== (a) EXACT =====================
-    ax1 = fig.add_subplot(1, 2, 1, projection='3d')
-    surf1 = ax1.plot_surface(
-        X, T, U_exact,
-        cmap='viridis',
+    surf = ax.plot_surface(
+        X, T_grid, U,
+        cmap=cmap,
         edgecolor='none',
         linewidth=0,
-        antialiased=True
+        antialiased=True,
+        alpha=0.95
     )
 
-    ax1.set_xlabel('x', fontsize=12, fontweight='bold')
-    ax1.set_ylabel('t', fontsize=12, fontweight='bold')
-    ax1.set_zlabel('u(x,t)', fontsize=12, fontweight='bold')
-    ax1.set_title('(a)', fontsize=14, fontweight='bold')
+    ax.set_xlabel('x', fontsize=12, fontweight='bold')
+    ax.set_ylabel('t', fontsize=12, fontweight='bold')
+    ax.set_zlabel('u(x,t)', fontsize=12, fontweight='bold')
+    ax.set_title(title, fontsize=14, fontweight='bold')
 
-    # ax1.set_zlim(0, 3.0)     
-    ax1.view_init(elev=25, azim=-60)
+    # Điều chỉnh góc nhìn
+    ax.view_init(elev=25, azim=-60)
+    ax.grid(False)
 
-    ax1.grid(False)         
-    cbar1 = fig.colorbar(surf1, ax=ax1, shrink=0.6, pad=0.08)
-    cbar1.set_label('u(x,t)', fontsize=10)
-
-    # ===================== (b) PINN =====================
-    ax2 = fig.add_subplot(1, 2, 2, projection='3d')
-    surf2 = ax2.plot_surface(
-        X, T, U_pinn,
-        cmap='plasma',
-        edgecolor='none',
-        linewidth=0,
-        antialiased=True
-    )
-
-    ax2.set_xlabel('x', fontsize=12, fontweight='bold')
-    ax2.set_ylabel('t', fontsize=12, fontweight='bold')
-    ax2.set_zlabel('u(x,t)', fontsize=12, fontweight='bold')
-    ax2.set_title('(b)', fontsize=14, fontweight='bold')
-
-    # ax2.set_zlim(0, 3.0)     
-    ax2.view_init(elev=25, azim=-60)
-
-    ax2.grid(False)          
-
-    cbar2 = fig.colorbar(surf2, ax=ax2, shrink=0.6, pad=0.08)
-    cbar2.set_label('u(x,t)', fontsize=10)
+    # Thêm colorbar
+    cbar = fig.colorbar(surf, ax=ax, shrink=0.6, pad=0.1)
+    cbar.set_label('u(x,t)', fontsize=10)
 
     plt.tight_layout()
-    plt.savefig('3d_comparison_clean.png', dpi=300, bbox_inches='tight')
+    
+    # Lưu file nếu có yêu cầu
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    else:
+        # Lưu với tên mặc định
+        plt.savefig(filename, dpi=300, bbox_inches='tight')
+    
     plt.show()
-
+    
 def result_compare(model, t_values=[0.01, 0.2, 0.3], n_points=200):
     x_vals = np.linspace(0, 1, n_points)
 

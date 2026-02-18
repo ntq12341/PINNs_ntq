@@ -21,7 +21,7 @@ def train():
     # training
     nu = 1
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = PhysicsInformedNN(X_train, Xi, Xb, ui, ub, layers, device, nu)
+    model = PhysicsInformedNN(X_train, Xi, Xb, ui, ub, layers, device, nu, ridge=True, ridge_lambda=1e-4)
       
     print("\nTraining with Adam optimizer...")
     start_time = time.time()                
@@ -110,52 +110,6 @@ def predict_at_multiple_points(model, points_list, device):
         results.append((u_pred, u_exact, error))
     
     return results
-
-
-def plot_prediction_vs_exact(model, x_range=(0, 1), t_point=0.1, n_points=100, device=None):
-    """
-    Vẽ đồ thị so sánh nghiệm dự đoán và nghiệm chính xác tại một thời điểm t cố định
-    
-    Parameters:
-    -----------
-    model : PhysicsInformedNN
-        Mô hình đã được train
-    x_range : tuple
-        Khoảng giá trị x (min, max)
-    t_point : float
-        Thời điểm cần vẽ
-    n_points : int
-        Số điểm trên trục x
-    device : torch.device
-        CPU hoặc CUDA device
-    """
-    if device is None:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    # Tạo lưới điểm
-    x_vals = np.linspace(x_range[0], x_range[1], n_points)
-    u_pred_vals = []
-    u_exact_vals = []
-    
-    for x in x_vals:
-        u_pred = predict_at_point(model, x, t_point, device)
-        u_exact = exact_solution(x, t_point)
-        u_pred_vals.append(u_pred)
-        u_exact_vals.append(u_exact)
-    
-    # Vẽ đồ thị
-    plt.figure(figsize=(10, 6))
-    plt.plot(x_vals, u_exact_vals, 'b-', linewidth=2, label='Exact solution', alpha=0.8)
-    plt.plot(x_vals, u_pred_vals, 'r--', linewidth=2, label='PINN prediction', alpha=0.8)
-    plt.xlabel('x', fontsize=12)
-    plt.ylabel('u(x,t)', fontsize=12)
-    plt.title(f'Solution at t = {t_point}', fontsize=14)
-    plt.legend(fontsize=11)
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(f'prediction_at_t_{t_point:.3f}.png', dpi=300, bbox_inches='tight')
-    plt.show()
-
 
 def create_table1(model, device, save_csv=True):
     """
@@ -308,7 +262,10 @@ if __name__ == "__main__":
     create_table2(model, device, N_points=3000)
     create_table2(model, device, N_points=5000)
     # Vẽ đồ thị so sánh 
-    result_3d(model, t_max=0.4, n_points=100)
+    result_3d(model, t_max=0.4, n_points=100, exact=True, cmap='viridis')
+    result_3d(model, t_max=0.4, n_points=100, exact=False, cmap='cividis',save_path='pinn_origin.png')
+    result_3d(model, t_max=0.4, n_points=100, exact=False, cmap='plasma')
+
     
     result_compare(model, t_values=[0.01, 0.2, 0.3], n_points=200) 
-    result_heatmap(model, t_max=0.4, n_points=200) 
+    # result_heatmap(model, t_max=0.4, n_points=200) 
