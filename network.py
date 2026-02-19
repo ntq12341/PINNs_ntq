@@ -7,18 +7,25 @@ from torch.autograd import grad
 from data_process import * 
 
 class PhysicsInformedNN():
-    def __init__(self, pde_points, i_points, b_points, i_data, b_data, layers, device, nu, ridge=False, ridge_lambda=1e-3):
+    def __init__(self, pde_points, i_points, b_points, i_data, b_data, layers, device, nu):
         
         data_points = np.vstack([i_points, b_points])
         data_values = np.concatenate([i_data, b_data])
 
         self.device = device
-        self.ridge = ridge
-        self.ridge_lambda = ridge_lambda
 
         # data
         self.x_f = torch.tensor(pde_points[:, 0:1], requires_grad=True).float().to(device)
         self.t_f = torch.tensor(pde_points[:, 1:2], requires_grad=True).float().to(device)
+        
+        # self.x_i = torch.tensor(i_points[:, 0:1], requires_grad=True).float().to(device)
+        # self.t_i = torch.tensor(i_points[:, 1:2], requires_grad=True).float().to(device)
+        
+        # self.x_b = torch.tensor(b_points[:, 0:1], requires_grad=True).float().to(device)
+        # self.t_b = torch.tensor(b_points[:, 1:2], requires_grad=True).float().to(device)
+
+        # self.u_i = torch.tensor(i_data).float().to(device)
+        # self.u_b = torch.tensor(b_data).float().to(device)
         
         self.x_data = torch.tensor(data_points[:, 0:1], requires_grad=True).float().to(device)
         self.t_data = torch.tensor(data_points[:, 1:2], requires_grad=True).float().to(device)
@@ -98,23 +105,15 @@ class PhysicsInformedNN():
         
         return f
     
-    def l2_regularization_loss(self):
-        """Tính L2 regularization loss trên tất cả parameters"""
-        l2_loss = 0.0
-        for name, param in self.model.named_parameters():
-            # Chỉ regularize weights, không regularize bias (tùy chọn)
-            # Có thể regularize cả weights và bias
-            l2_loss += torch.norm(param, p=2)**2
-        
-        # Hoặc nếu muốn regularize cả weights và bias:
-        # for param in self.model.parameters():
-        #     l2_loss += torch.norm(param, p=2)**2
-        
-        return self.ridge_lambda * l2_loss
-    
     def loss_fn(self):
         """Calculate total loss"""
         # Data loss
+        # ub_pred = self.net_u(self.x_b, self.t_b)
+        # loss_ub = torch.mean((self.u_b - ub_pred)**2)
+        
+        # ui_pred = self.net_u(self.x_i, self.t_i)
+        # loss_ui = torch.mean((self.u_i - ui_pred)**2)
+        
         ud_pred = self.net_u(self.x_data, self.t_data)
         loss_d = torch.mean((self.u_data - ud_pred)**2)
         
@@ -123,16 +122,9 @@ class PhysicsInformedNN():
         loss_f = torch.mean(f_pred**2)
         
         # Total loss
-        loss = loss_d + loss_f
+        loss =  loss_d + loss_f
         
-        # Thêm L2 regularization nếu ridge=True
-        if self.ridge:
-            loss_l2 = self.l2_regularization_loss()
-            loss = loss + loss_l2
-        else:
-            loss_l2 = torch.tensor(0.0)
-        
-        return loss, loss_d, loss_f, loss_l2
+        return loss, loss_d, loss_f
 
     def train(self, epochs=10000):
         """Training loop"""
@@ -141,7 +133,7 @@ class PhysicsInformedNN():
         for epoch in range(epochs):
             self.optimizer_Adam.zero_grad()
             
-            loss, loss_d, loss_f, loss_l2 = self.loss_fn()
+            loss, loss_d, loss_f = self.loss_fn()
             
             loss.backward()
             self.optimizer_Adam.step()
@@ -149,10 +141,7 @@ class PhysicsInformedNN():
             self.loss_history.append(loss.item())
             
             if epoch % 1000 == 0:
-                if self.ridge:
-                    print(f'Epoch {epoch:5d}: Loss = {loss.item():.6e}, Loss_d = {loss_d.item():.6e}, Loss_f = {loss_f.item():.6e}, Loss_l2 = {loss_l2.item():.6e}')
-                else:
-                    print(f'Epoch {epoch:5d}: Loss = {loss.item():.6e}, Loss_d = {loss_d.item():.6e}, Loss_f = {loss_f.item():.6e}')
+                print(f'Epoch {epoch:5d}: Loss = {loss.item():.6e}, Loss_d = {loss_d.item():.6e}, Loss_f = {loss_f.item():.6e}')
     
     def train_lbfgs(self, max_iter=50000):
         """Training with L-BFGS optimizer (more accurate but slower)"""
@@ -160,16 +149,13 @@ class PhysicsInformedNN():
         
         def closure():
             self.optimizer.zero_grad()
-            loss, loss_d, loss_f, loss_l2 = self.loss_fn() 
+            loss, loss_d, loss_f = self.loss_fn() 
             loss.backward()
             
             self.loss_history.append(loss.item())
             
             if len(self.loss_history) % 100 == 0:
-                if self.ridge:
-                    print(f'Iter {len(self.loss_history):5d}: Loss = {loss.item():.6e}, Loss_d = {loss_d.item():.6e}, Loss_f = {loss_f.item():.6e}, Loss_l2 = {loss_l2.item():.6e}')
-                else:
-                    print(f'Iter {len(self.loss_history):5d}: Loss = {loss.item():.6e}, Loss_d = {loss_d.item():.6e}, Loss_f = {loss_f.item():.6e}')
+                print(f'Iter {len(self.loss_history):5d}: Loss = {loss.item():.6e}')
             
             return loss
         

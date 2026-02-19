@@ -21,7 +21,7 @@ def train():
     # training
     nu = 1
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = PhysicsInformedNN(X_train, Xi, Xb, ui, ub, layers, device, nu, ridge=True, ridge_lambda=1e-4)
+    model = PhysicsInformedNN(X_train, Xi, Xb, ui, ub, layers, device, nu)
       
     print("\nTraining with Adam optimizer...")
     start_time = time.time()                
@@ -31,7 +31,7 @@ def train():
     
     print("\nFine-tuning with L-BFGS optimizer...")
     start_time = time.time()
-    model.train_lbfgs(max_iter=5000)
+    model.train_lbfgs(max_iter=10000)
     elapsed = time.time() - start_time
     print('\nFine-tuning time: %.4f seconds' % (elapsed))
 
